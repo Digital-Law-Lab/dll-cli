@@ -1,13 +1,19 @@
 {
-  "name": "docassemble-project-manager",
-  "version": "1.0.0",
-  "description": "A utility script that runs the python script that pushes local code to Docassembel's playground for testing purposes",
-  "main": "index.js",
+  "name": "dll-cli",
+  "version": "0.1.0",
+  "description": "A CLI tool for Digital Law Lab providing necessary project management functionalities for testing (i.e. pushing code to Docassemble's playground) and other purposes",
+  "main": "src/index.js",
+  "bin": "src/index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/index.js"
   },
-  "keywords": [],
+  "keywords": [
+    "cli",
+    "Docassemble",
+    "DLL",
+    "Digital Law Lab"
+  ],
   "author": "Sirage_t",
   "license": "MIT",
   "dependencies": {
@@ -17,10 +23,7 @@
     "hyperlinker": "^1.0.0",
     "inquirer": "^9.1.4",
     "inquirer-autocomplete-prompt": "^3.0.0",
-    "inquirer-fuzzy-path": "^2.3.0",
     "ora": "^6.1.2",
-    "python-shell": "^3.0.1",
-    "rxjs": "^7.8.0",
-    "terminal-link": "^3.0.0"
+    "python-shell": "^3.0.1"
   }
 }

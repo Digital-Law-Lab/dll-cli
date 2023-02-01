@@ -11,7 +11,6 @@ import ora from 'ora';
 import hyperlinker from 'hyperlinker';
 import { search } from 'fast-fuzzy';
 import inquirer from 'inquirer';
-import fuzzyPath from 'inquirer-fuzzy-path';
 import autoComplete from 'inquirer-autocomplete-prompt';
 
 import {
@@ -23,7 +22,6 @@ import {
 } from './utilities.js';
 
 //  Register InquirerJS plugins
-inquirer.registerPrompt('fuzzypath', fuzzyPath);
 inquirer.registerPrompt('autocomplete', autoComplete);
 
 // Current directory
