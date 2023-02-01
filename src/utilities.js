@@ -66,8 +66,6 @@ export const getDirectoriesRecursive = async (
     };
     if (!rootPath) rootPath = source;
 
-    console.log('source', source);
-
     const showFiles = options.type == 'file' || options.type == 'both';
 
     const dontShowDirectories = options.type == 'file';
@@ -118,8 +116,6 @@ export const getDirectoriesRecursive = async (
 
     let dirs = await getDirectories(source, showFiles, showFiles);
 
-    console.log('dirs', dirs);
-
     // depth level reached
     if (options.depthLimit === level) {
       foundDirList = [
@@ -137,7 +133,7 @@ export const getDirectoriesRecursive = async (
       dirs = [];
     }
 
-    // check if current dir is excluded
+    // remove excluded path from dirs (directories in current source)
     while (
       dirs.length !== 0 &&
       options.excludePath(getCurrentDirectoryToScan(dirs).path)
@@ -168,18 +164,21 @@ export const getDirectoriesRecursive = async (
         : [currentDirToScan.path]),
     ];
 
-    // if current directory is empty then we are scaning the remaining dirs.
+    // if current directory is empty then we are scaning the remaining dirs, remove excluded path before adding them to the queu
     if (dirs.length === 0) {
       remainingDirsToSearch = remainingDirsToSearch.slice(1);
     } else {
       remainingDirsToSearch = [
-        ...dirs.slice(1).map((base) => ({
-          path: path.relative(
-            rootPath,
-            path.join(source, showFiles ? base.name : base)
-          ),
-          isDirectory: showFiles ? base.isDirectory() : undefined,
-        })),
+        ...dirs
+          .slice(1)
+          .map((base) => ({
+            path: path.relative(
+              rootPath,
+              path.join(source, showFiles ? base.name : base)
+            ),
+            isDirectory: showFiles ? base.isDirectory() : undefined,
+          }))
+          .filter((_dir) => !options.excludePath(_dir.path)),
         ...remainingDirsToSearch,
       ];
     }

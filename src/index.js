@@ -8,6 +8,7 @@ import { PythonShell } from 'python-shell';
 
 import chalk from 'chalk';
 import ora from 'ora';
+import hyperlinker from 'hyperlinker';
 import { search } from 'fast-fuzzy';
 import inquirer from 'inquirer';
 import fuzzyPath from 'inquirer-fuzzy-path';
@@ -36,15 +37,15 @@ const configFileFullPath = path.join(pathToConfigFile, configFileName);
 
 const configFileExists = await pathExists(configFileFullPath);
 
-try {
-  const ddir = await getDirectoriesRecursive(__cwd, {
-    baseOnly: false,
-    includeCurrentDir: true,
-  });
-  log(ddir);
-} catch (error) {
-  log(error);
-}
+// try {
+//   const ddir = await getDirectoriesRecursive(__cwd, {
+//     baseOnly: false,
+//     includeCurrentDir: true,
+//   });
+//   log(ddir);
+// } catch (error) {
+//   log(error);
+// }
 
 // grab api key and project names from the config file
 let jsonProjectNames, jsonApiKeyNames, jsonApiKeys;
@@ -72,7 +73,15 @@ if (!configFileExists) {
     },
     {
       name: 'API_key',
-      message: `What is the Docassemble API key? ${chalk.italic('(see)')}`,
+      message: `What is the Docassemble API key? ${chalk.grey(
+        '(see ' +
+          hyperlinker(
+            '#docassemble-api-key',
+            'https://github.com/Digital-Law-Lab/Digital-Law-Lab/wiki/Setting-Up#docassemble-api-key'
+          ) +
+          ')'
+      )}`,
+
       validate(_value) {
         return isEmpty(_value)
           ? chalk.yellowBright('API key cannot be empty')
@@ -112,7 +121,6 @@ if (!configFileExists) {
 
         return new Promise(async (resolve) => {
           const _currentDir = await getCurrentDirsOnce(__cwd, {
-            excludePath: (nodePath) => nodePath == 'node_modules',
             type: 'directory',
             baseOnly: 'true',
           });
@@ -143,7 +151,7 @@ if (!configFileExists) {
       source: () => {
         return getDirectoriesRecursive(__cwd, {
           type: 'directory',
-          includeCurrentDir: false,
+          includeCurrentDir: true,
           depthLimit: 3,
           currentDirText: `Current Directory [${__cwd}]`,
         });
@@ -189,24 +197,6 @@ if (!configFileExists) {
 }
 
 let questions_PushToDA = [
-  {
-    name: 'folderPath',
-    message: 'Which folder do you want to push to the playground?',
-    type: 'autocomplete',
-    suggestOnly: false,
-    source: () => {
-      return getDirectoriesRecursive(__cwd, {
-        excludePath: (nodePath) => nodePath == 'node_modules',
-        includeCurrentDir: true,
-        currentDirText: `Current folder [${__cwd}]`,
-      });
-    },
-    filter(input) {
-      if (input.includes('Current folder'))
-        return String(input.split(/\[|\]/)[1]);
-      return path.join(__cwd, input);
-    },
-  },
   configFileExists && {
     name: 'playgroundProject',
     message: 'Which playground project do you want to push your code to?',
@@ -233,7 +223,6 @@ let questions_PushToDA = [
 
       return new Promise(async (resolve) => {
         const _currentDir = await getCurrentDirsOnce(__cwd, {
-          excludePath: (nodePath) => nodePath == 'node_modules',
           type: 'directory',
           baseOnly: 'true',
         });
@@ -259,7 +248,7 @@ let questions_PushToDA = [
     type: 'list',
     choices: () => jsonApiKeyNames,
     when() {
-      return typeof jsonApiKeyNames !== 'string' && jsonApiKeyNames.length > 1;
+      return jsonApiKeyNames.length > 1;
     },
   },
   configFileExists && {
@@ -269,7 +258,7 @@ let questions_PushToDA = [
     )} as your API key`,
     type: 'confirm',
     when() {
-      return typeof jsonApiKeyNames === 'string' || jsonApiKeyNames.length == 1;
+      return jsonApiKeyNames.length == 1;
     },
   },
   !answers_CreateConfig?.wantToCreateConfigFile && {
@@ -293,6 +282,23 @@ let questions_PushToDA = [
     default: 'https://llaw3301.achelp.net/api',
     when(_answersHash) {
       return !_answersHash.apiKeyNameConfirm && !_answersHash.apiKeyName;
+    },
+  },
+  {
+    name: 'folderPath',
+    message: 'Which folder do you want to push to the playground?',
+    type: 'autocomplete',
+    suggestOnly: false,
+    source: () => {
+      return getDirectoriesRecursive(__cwd, {
+        includeCurrentDir: true,
+        currentDirText: `Current folder [${__cwd}]`,
+      });
+    },
+    filter(input) {
+      if (input.includes('Current folder'))
+        return String(input.split(/\[|\]/)[1]);
+      return path.join(__cwd, input);
     },
   },
 ].filter(Boolean);
