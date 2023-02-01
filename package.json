@@ -1,0 +1,24 @@
+{
+  "name": "docassemble-project-manager",
+  "version": "1.0.0",
+  "description": "A utility script that runs the python script that pushes local code to Docassembel's playground for testing purposes",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Sirage_t",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^5.2.0",
+    "fast-fuzzy": "^1.12.0",
+    "fs-extra": "^11.1.0",
+    "inquirer": "^9.1.4",
+    "inquirer-autocomplete-prompt": "^3.0.0",
+    "inquirer-fuzzy-path": "^2.3.0",
+    "ora": "^6.1.2",
+    "python-shell": "^3.0.1",
+    "rxjs": "^7.8.0"
+  }
+}
