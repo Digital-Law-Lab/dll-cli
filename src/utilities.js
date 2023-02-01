@@ -137,6 +137,15 @@ export const getDirectoriesRecursive = async (
       dirs = [];
     }
 
+    // check if current dir is excluded
+    while (
+      dirs.length !== 0 &&
+      options.excludePath(getCurrentDirectoryToScan(dirs).path)
+    ) {
+      // current dir is excluded check next in line
+      dirs.shift();
+    }
+
     // current dir is empty and no remaining dirs to scan
     if (dirs.length === 0 && remainingDirsToSearch.length === 0)
       return getFoundDirList();
@@ -147,15 +156,6 @@ export const getDirectoriesRecursive = async (
       level += 1;
     } else {
       level = currentDirToScan.level;
-    }
-
-    // check if current dir is excluded
-    while (options.excludePath(currentDirToScan.path)) {
-      // current dir is excluded and no other dir exists to scan
-      if (currentDirList.length === 1) return getFoundDirList();
-      currentDirList.shift();
-      currentDirToScan = getCurrentDirectoryToScan(currentDirList);
-      console.log('path', currentDirToScan.path);
     }
 
     const subPath = path.join(rootPath, currentDirToScan.path);
