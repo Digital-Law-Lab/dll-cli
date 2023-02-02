@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+    "lib": ["es6"],
+    "target": "ES2017",
+    "outDir": "dist",
+    "baseUrl": ".",
+    "types": ["node"],
+    "rootDir": "src",
+    "sourceMap": true,
+    "allowSyntheticDefaultImports": true,
+    "noImplicitAny": true,
+    "removeComments": true,
+    "preserveConstEnums": true,
+    "noUnusedLocals": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "**/*.spec.ts"],
+  "ts-node": {
+    "swc": true,
+    "esm": true
+  }
+}

@@ -3,14 +3,14 @@
 import { appendFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { outputJson, pathExists, readJson, remove } from 'fs-extra/esm';
-import { PythonShell } from 'python-shell';
+import { outputJson, pathExists, readJson } from 'fs-extra/esm';
+import { Options as PyShellOptions, PythonShell } from 'python-shell';
 
 import chalk from 'chalk';
 import ora from 'ora';
 import hyperlinker from 'hyperlinker';
 import { search } from 'fast-fuzzy';
-import inquirer from 'inquirer';
+import inquirer, { Answers } from 'inquirer';
 import autoComplete from 'inquirer-autocomplete-prompt';
 
 import {
@@ -20,6 +20,7 @@ import {
   containsWhitespace,
   getCurrentDirsOnce,
 } from './utilities.js';
+import { APIKeyObject } from './types/index.js';
 
 //  Register InquirerJS plugins
 inquirer.registerPrompt('autocomplete', autoComplete);
@@ -46,7 +47,10 @@ const configFileExists = await pathExists(configFileFullPath);
 // }
 
 // grab api key and project names from the config file
-let jsonProjectNames, jsonApiKeyNames, jsonApiKeys, jsonApiKeysObject;
+let jsonProjectNames: string[],
+  jsonApiKeyNames: string[],
+  jsonApiKeys: Map<string, APIKeyObject>,
+  jsonApiKeysObject;
 if (configFileExists) {
   try {
     const configFileJson = await readJson(configFileFullPath);
@@ -60,7 +64,7 @@ if (configFileExists) {
 }
 
 // Create a configuration file for the current project if wanted
-let answers_CreateConfig;
+let answers_CreateConfig: Answers;
 if (!configFileExists) {
   answers_CreateConfig = await inquirer.prompt(
     [
@@ -82,12 +86,12 @@ if (!configFileExists) {
             ')'
         )}`,
 
-        validate(_value) {
+        validate(_value: string) {
           return isEmpty(_value)
             ? chalk.yellowBright('API key cannot be empty')
             : true;
         },
-        when(_answersHash) {
+        when(_answersHash: Answers) {
           return _answersHash.wantToCreateConfigFile;
         },
       },
@@ -95,7 +99,7 @@ if (!configFileExists) {
         name: 'apiKeyName',
         message: `What would you like to call this API key?`,
         default: 'dll_api_key',
-        when(_answersHash) {
+        when(_answersHash: Answers) {
           return _answersHash.wantToCreateConfigFile;
         },
       },
@@ -103,32 +107,32 @@ if (!configFileExists) {
         name: 'API_root',
         message: `What is the API root url?`,
         default: 'https://llaw3301.achelp.net/api',
-        when(_answersHash) {
+        when(_answersHash: Answers) {
           return _answersHash.wantToCreateConfigFile;
         },
       },
       {
         name: 'DA_playground_project',
         message: 'What is the name of your DA playground project?',
-        when(_answersHash) {
+        when(_answersHash: Answers) {
           return _answersHash.wantToCreateConfigFile;
         },
         type: 'autocomplete',
         suggestOnly: true,
         emptyText: 'Searching for suggestions as you type (Tab to select)',
-        source: (_, input) => {
+        source: (_: Answers, input: string): string[] | Promise<string[]> => {
           if (isEmpty(input)) return [];
 
           return new Promise(async (resolve) => {
             const _currentDir = await getCurrentDirsOnce(__cwd, {
               type: 'directory',
-              baseOnly: 'true',
+              baseOnly: true,
             });
             const fuzzySearchResult = search(input, _currentDir);
             resolve(fuzzySearchResult);
           });
         },
-        validate(_value) {
+        validate(_value: string) {
           if (!/^(?:[a-z]|[A-Z]|-|[0-9])+$/.test(_value))
             return chalk.yellowBright(
               'Project name must only contain letters, numbers, or hyphens, without any space'
@@ -146,7 +150,7 @@ if (!configFileExists) {
         message: 'Where would you like to save your configuration file?',
         type: 'autocomplete',
         suggestOnly: false,
-        when(_answersHash) {
+        when(_answersHash: Answers) {
           return _answersHash.wantToCreateConfigFile;
         },
         source: () => {
@@ -166,7 +170,10 @@ if (!configFileExists) {
       `Creating file ${chalk.blue("'dll.config.json'")} `
     ).start();
 
-    let constructedConfig = {
+    let constructedConfig: {
+      API_keys: { [key: string]: APIKeyObject };
+      DA_playground_projects: string[];
+    } = {
       API_keys: {},
       DA_playground_projects: [answers_CreateConfig.DA_playground_project],
     };
@@ -202,7 +209,6 @@ let questions_PushToDA = [
   configFileExists && {
     name: 'playgroundProject',
     message: 'Which playground project do you want to push your code to?',
-    type: 'list',
     type: 'autocomplete',
     suggestOnly: false,
     source: () => Promise.resolve([...jsonProjectNames, 'Something else']),
@@ -210,7 +216,7 @@ let questions_PushToDA = [
   {
     name: 'customPlaygroundProject',
     message: 'Please type the name of the playground project:',
-    when: (_answersHash) => {
+    when: (_answersHash: Answers) => {
       return (
         _answersHash.playgroundProject == 'Something else' ||
         (!answers_CreateConfig?.wantToCreateConfigFile &&
@@ -220,19 +226,20 @@ let questions_PushToDA = [
     type: 'autocomplete',
     suggestOnly: true,
     emptyText: 'Searching for suggestions as you type (Tab to select)',
-    source: (_, input) => {
+    source: (_: Answers, input: string): string[] | Promise<string[]> => {
       if (isEmpty(input)) return [];
 
       return new Promise(async (resolve) => {
+        // TODO: align with the expectations of the python script i.e. folder starts with docassemble-[folderName]
         const _currentDir = await getCurrentDirsOnce(__cwd, {
           type: 'directory',
-          baseOnly: 'true',
+          baseOnly: true,
         });
         const fuzzySearchResult = search(input, _currentDir);
         resolve(fuzzySearchResult);
       });
     },
-    validate(_value) {
+    validate(_value: string) {
       if (!/^(?:[a-z]|[A-Z]|-|[0-9])+$/.test(_value))
         return chalk.yellowBright(
           'Project name must only contain letters, numbers, or hyphens, without any space'
@@ -266,10 +273,10 @@ let questions_PushToDA = [
   !answers_CreateConfig?.wantToCreateConfigFile && {
     name: 'apiKey',
     message: `What is the API key? (not the name)`,
-    when(_answersHash) {
+    when(_answersHash: Answers) {
       return !_answersHash.apiKeyNameConfirm && !_answersHash.apiKeyName;
     },
-    validate(_value) {
+    validate(_value: string) {
       if (isEmpty(_value)) return chalk.yellowBright('API key cannot be empty');
       if (containsWhitespace(_value))
         return chalk.yellowBright(
@@ -282,7 +289,7 @@ let questions_PushToDA = [
     name: 'apiRoot',
     message: 'What is the API root url?',
     default: 'https://llaw3301.achelp.net/api',
-    when(_answersHash) {
+    when(_answersHash: Answers) {
       return !_answersHash.apiKeyNameConfirm && !_answersHash.apiKeyName;
     },
   },
@@ -297,7 +304,7 @@ let questions_PushToDA = [
         currentDirText: `Current folder [${__cwd}]`,
       });
     },
-    filter(input) {
+    filter(input: string) {
       if (input.includes('Current folder'))
         return String(input.split(/\[|\]/)[1]);
       return path.join(__cwd, input);
@@ -308,6 +315,7 @@ let questions_PushToDA = [
 const answers_PushToDA = await inquirer.prompt(questions_PushToDA);
 
 if (answers_PushToDA.apiKey) {
+  // TODO: update existing configuration file if user provides new api key not listed in the existing configuration and did not say they don't want to save the new key or create a configuration file (if they don't already have one)
   // addApiKey(apiName, apiKey, apiRoot, apiObject) -> modified object
   // modifyJsonFile(filePath, modifiedObject )
 }
@@ -342,28 +350,24 @@ if (!!answers_CreateConfig) {
     answers_CreateConfig.DA_playground_project;
 }
 
-//TODO: implement below with python script section
-// run the puthon script to push to the playground
-// show a progress of the files being pushed
-const filesToPush = await getDirectoriesRecursive(answers_PushToDA.folderPath, {
-  type: 'both',
-});
-
-const spinnerPushing = ora('Pushing files').start();
-
-for (const file of filesToPush) {
-  await delay(100);
-  spinnerPushing.text = `Pushing ${file}`;
-}
-spinnerPushing.succeed('Files pushed successfully!');
-
 /**
  * Python Script Section
  */
 
-const pythonVersion = PythonShell.getVersionSync();
-
-log('python version:', pythonVersion);
+// make sure python is installed and callable in CLI
+try {
+  await PythonShell.getVersionSync();
+} catch (error) {
+  console.error(error);
+  if (error.status == 9009)
+    console.error(
+      chalk.bgRed(
+        'Ensure that python is installed and can be launched from the terminal i.e. via `python --version`'
+      )
+    );
+  // something went wrong, python is not running, terminate
+  process.exit(1);
+}
 
 // temporarily create a secrets.json file then remove (required because python script expect a path to the file and not an object)
 const tempSecretsJsonPath = path.join(__cwd, 'secrets.json');
@@ -375,7 +379,7 @@ try {
   } else {
     // user supplied the key and root, so create a temp name for python script
     answers_PushToDA.apiKeyName = 'dll_api_key';
-    let _keyObj = {};
+    let _keyObj: { [key: string]: APIKeyObject } = {};
     _keyObj[answers_PushToDA.apiKeyName] = {
       api_key: answers_PushToDA.apiKey,
       api_root: answers_PushToDA.apiRoot,
@@ -403,7 +407,9 @@ try {
   //   if (err) throw err;
   // });
 
-  const pythonScriptOptions = {
+  const pythonScriptOptions: PyShellOptions = {
+    mode: 'text',
+    pythonOptions: ['-u'], // get print results in real-time
     args: [
       '--secrets',
       tempSecretsJsonPath,
@@ -417,20 +423,75 @@ try {
     ],
   };
 
-  PythonShell.run(
-    pythonPlaygroundManagerPath,
-    pythonScriptOptions,
-    function (err, results) {
-      if (err) throw err;
-      console.log('finished');
-      // results is an array consisting of messages collected during execution
-      console.log('results: %j', results);
-    }
-  );
+  const msgsFromPython = await new Promise((resolve, reject) => {
+    let _warningEncountered = false;
+    let _shell = new PythonShell(
+      pythonPlaygroundManagerPath,
+      pythonScriptOptions
+    );
+
+    _shell.on('message', function (message) {
+      // handle message (a line of text from stdout)
+      log('Python Messages: ', message);
+    });
+
+    // fires when logs are printed through stderr
+    _shell.on('stderr', function (stderr) {
+      log('Python Logs: ', stderr);
+      // check if log contains a WARNING
+      if (stderr.includes('WARNING')) {
+        _warningEncountered = true;
+        console.warn(chalk.bgYellowBright(stderr));
+      }
+    });
+
+    // Fires when the process terminates with a non-zero exit code.
+    _shell.on('pythonError', function (err) {
+      log('Python Error: ');
+      reject(err);
+    });
+
+    // Fires when: The process could not be spawned, or The process could not be killed, or Sending a message to the child process failed.
+    _shell.on('error', function (err) {
+      log('Error: ');
+      reject(err);
+    });
+
+    _shell.end(resolve);
+
+    // PythonShell.run(
+    //   pythonPlaygroundManagerPath,
+    //   pythonScriptOptions,
+    //   function (err, result) {
+    //     if (err) reject(err);
+    //     resolve(result);
+    //   }
+    // );
+  });
+
+  // log('msgs: ', msgsFromPython.toString());
+  // log('python finished');
 } catch (err) {
   console.error(err);
-  if (err.exitCode == 9009)
-    console.error(
-      chalk.redBright('Ensure that python is installed and in the PATH')
-    );
+  // unexpected error occured exit
+  process.exit(1);
 }
+
+/**
+ * cool animation
+ */
+
+//TODO: implement below with python script section
+// run the puthon script to push to the playground
+// show a progress of the files being pushed
+const filesToPush = await getDirectoriesRecursive(answers_PushToDA.folderPath, {
+  type: 'both',
+});
+
+const spinnerPushing = ora('Pushing files').start();
+
+for (const file of filesToPush) {
+  await delay(100);
+  spinnerPushing.text = `Pushing ${file}`;
+}
+spinnerPushing.succeed('Files pushed successfully!');

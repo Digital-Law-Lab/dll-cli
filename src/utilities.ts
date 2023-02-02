@@ -1,4 +1,5 @@
-import { lstat, readdir, access, mkdir, writeFile } from 'node:fs/promises';
+import { Dirent } from 'node:fs';
+import { lstat, readdir } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
@@ -9,7 +10,7 @@ import path from 'node:path';
  * @returns An array of directories within `source` (no subdirectories are traversed), will include files if `includeFiles = true`.
  */
 export const getDirectories = async (
-  source,
+  source: string,
   includeFiles = false,
   withFileTypes = false
 ) => {
@@ -28,6 +29,17 @@ export const getDirectories = async (
   }
 };
 
+interface getDirectoriesRecursiveOptions {
+  type?: 'directory' | 'file' | 'both';
+  baseOnly?: boolean;
+  depthLimit?: number | undefined;
+  excludePath?: (nodePath: string) => boolean;
+  includeCurrentDir?: boolean;
+  currentDirText?: string;
+}
+
+type queuedDirObj = { path: string; isDirectory?: boolean };
+
 /**
  *
  * @param {string} source required
@@ -43,13 +55,13 @@ export const getDirectories = async (
  * @returns An array of directories and subdirectories. It will include files if `type = 'file' or 'all'`.
  */
 export const getDirectoriesRecursive = async (
-  source,
-  options,
-  foundDirList = [],
-  remainingDirsToSearch = [],
-  rootPath,
+  source: string,
+  options?: getDirectoriesRecursiveOptions,
+  foundDirList: string[] = [],
+  remainingDirsToSearch: Array<string | queuedDirObj> = [],
+  rootPath?: string,
   level = 1
-) => {
+): Promise<string[]> => {
   try {
     // set default options
     options = {
@@ -57,7 +69,7 @@ export const getDirectoriesRecursive = async (
         type: 'directory',
         baseOnly: false,
         depthLimit: 3,
-        excludePath: (_nodePath) =>
+        excludePath: (_nodePath: string) =>
           _nodePath.includes('node_modules') || _nodePath.includes('.git'),
         includeCurrentDir: false,
         currentDirText: '.',
@@ -70,7 +82,9 @@ export const getDirectoriesRecursive = async (
 
     const dontShowDirectories = options.type == 'file';
 
-    const getCurrentDirectoryToScan = (_directoryList) => {
+    const getCurrentDirectoryToScan = (
+      _directoryList: (string | Dirent | queuedDirObj)[]
+    ): { path: string; isDirectory: boolean; level: number } => {
       let _dirPath, _isDirectory, _depth;
       if (typeof _directoryList[0] === 'string') {
         _dirPath = path.join(source, _directoryList[0]);
@@ -82,14 +96,16 @@ export const getDirectoriesRecursive = async (
         // the directory could either be `dirent` object returned by readdir or the object inside `remainingDirsToSearch`.
         // if dirent the path is `source` + base name
         // otherwise it is the original path preformated in `remainingDirsToSearch`.
-        _dirPath = !!_directoryList[0].name
-          ? path.join(source, _directoryList[0].name)
-          : path.join(rootPath, _directoryList[0].path);
+        _dirPath =
+          'name' in _directoryList[0]
+            ? path.join(source, _directoryList[0].name)
+            : path.join(rootPath, _directoryList[0].path);
         // if dirent use the builtin method `isDirectory()`
-        _isDirectory = !!_directoryList[0].name
-          ? _directoryList[0].isDirectory()
-          : _directoryList[0].isDirectory;
-        _depth = !_directoryList[0].name
+        _isDirectory =
+          'name' in _directoryList[0]
+            ? _directoryList[0].isDirectory()
+            : _directoryList[0].isDirectory;
+        _depth = !('name' in _directoryList[0])
           ? _directoryList[0].path.split(path.sep).length == 0
             ? 1
             : _directoryList[0].path.split(path.sep).length
@@ -121,10 +137,13 @@ export const getDirectoriesRecursive = async (
       foundDirList = [
         ...foundDirList,
         ...dirs
-          .map((base) =>
+          .map((base: string | Dirent) =>
             path.relative(
               rootPath,
-              path.join(source, showFiles ? base.name : base)
+              path.join(
+                source,
+                showFiles ? (base as Dirent).name : (base as string)
+              )
             )
           )
           .filter((_path) => !options.excludePath(_path)),
@@ -171,12 +190,15 @@ export const getDirectoriesRecursive = async (
       remainingDirsToSearch = [
         ...dirs
           .slice(1)
-          .map((base) => ({
+          .map((base: string | Dirent) => ({
             path: path.relative(
               rootPath,
-              path.join(source, showFiles ? base.name : base)
+              path.join(
+                source,
+                showFiles ? (base as Dirent).name : (base as string)
+              )
             ),
-            isDirectory: showFiles ? base.isDirectory() : undefined,
+            isDirectory: showFiles ? (base as Dirent).isDirectory() : undefined,
           }))
           .filter((_dir) => !options.excludePath(_dir.path)),
         ...remainingDirsToSearch,
@@ -197,8 +219,11 @@ export const getDirectoriesRecursive = async (
   }
 };
 
-let alreadyVisitedSource, cachedDirs;
-export const getCurrentDirsOnce = async (source, options) => {
+let alreadyVisitedSource: string, cachedDirs: string[];
+export const getCurrentDirsOnce = async (
+  source: string,
+  options: getDirectoriesRecursiveOptions
+) => {
   if (alreadyVisitedSource != source) {
     alreadyVisitedSource = source;
     cachedDirs = await getDirectoriesRecursive(source, options);
@@ -209,19 +234,6 @@ export const getCurrentDirsOnce = async (source, options) => {
 export const delay = (duration = 1000) =>
   new Promise((resolve) => setTimeout(resolve, duration));
 
-export const doesDirExists = (_path) =>
-  access(_path)
-    .then(() => true)
-    .catch(() => false);
+export const isEmpty = (_value: string) => !_value || /^\s*$/.test(_value);
 
-export const createFile = async (fileName, content, location) => {
-  const _path = path.join(location, fileName);
-  if (!(await doesDirExists(location))) {
-    await mkdir(location);
-  }
-  return writeFile(_path, content, 'utf-8');
-};
-
-export const isEmpty = (_value) => !_value || /^\s*$/.test(_value);
-
-export const containsWhitespace = (_value) => /\s+/.test(_value);
+export const containsWhitespace = (_value: string) => /\s+/.test(_value);
