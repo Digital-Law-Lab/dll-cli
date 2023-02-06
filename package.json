@@ -1,10 +1,13 @@
 {
   "name": "dll-cli",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "A CLI tool for Digital Law Lab providing necessary DA package management functionalities for testing (i.e. pushing to Docassemble's playground) and other purposes",
   "bin": {
     "dll-cli": "./dist/index.js"
   },
+  "files": [
+    "dist/**/*"
+  ],
   "type": "module",
   "scripts": {
     "start": "ts-node src/index.ts",

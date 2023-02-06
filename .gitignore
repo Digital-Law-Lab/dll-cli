@@ -130,14 +130,4 @@ dist
 .pnp.*
 
 # Digital Law Lab Config
-dll_config/**
-# Digital Law Lab Config
-dll_config/**
-# Digital Law Lab Config
-dll_config/**
-# Digital Law Lab Config
-dll_config/**
-# Digital Law Lab Config
-dll_config/**
-# Digital Law Lab Config
-dll_config/**
+dll_config/*
