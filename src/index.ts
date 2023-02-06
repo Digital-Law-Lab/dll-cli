@@ -271,7 +271,7 @@ if (!configFileExists) {
     console.log(
       `Your configuration file will be saved at \`${path.join(
         '.',
-        'config',
+        'dll-config',
         'dll.config.json'
       )}\``
     );

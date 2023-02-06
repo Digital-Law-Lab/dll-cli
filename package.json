@@ -1,19 +1,18 @@
 {
   "name": "dll-cli",
-  "version": "0.7.2",
+  "version": "0.7.4",
   "description": "A CLI tool for Digital Law Lab providing necessary DA package management functionalities for testing (i.e. pushing to Docassemble's playground) and other purposes",
   "bin": {
-    "dll-cli": "./dist/index.js"
+    "dll-cli": "./lib/index.js"
   },
   "files": [
-    "dist/**/*"
+    "lib/**/*"
   ],
   "type": "module",
   "scripts": {
     "start": "ts-node src/index.ts",
     "build": "tsc && yarpm-pnpm run copy",
-    "copy": "ncp src/python-scripts dist/python-scripts",
-    "test": "ts-node src/listr2test.ts"
+    "copy": "ncp src/python-scripts lib/python-scripts"
   },
   "keywords": [
     "cli",
